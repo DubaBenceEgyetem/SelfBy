@@ -2,28 +2,38 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-def processImage(frame):
-    grayImage = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+
+def processImage(frame, gamma):
+    invGamma = 1.0 / gamma
+    table = np.array([((i / 255.0) ** invGamma) * 255 for i in range(256)]).astype("uint8")
+    gamma = cv2.LUT(frame, table)    
+    adjusted = cv2.convertScaleAbs(gamma, alpha=1.0, beta=2.0)
+    grayImage = cv2.cvtColor(adjusted, cv2.COLOR_BGR2GRAY)
     bluredImage = cv2.GaussianBlur(grayImage, (5,5), 0)
-    cannyImage = cv2.Canny(bluredImage, 80,100)
+    cannyImage = cv2.Canny(bluredImage, 20, 150, apertureSize=3) #20 a minimum 100 az optimális, 150
     return cannyImage
 
-def region_triangle(frame):
-    height = frame.shape[0]
-    polygons = np.array([[(50, height), (1150, height), (750, 350)]]) #array x and y and the top endpoint
-    mask = np.zeros_like(frame)
-    cv2.fillPoly(mask, polygons, 200)
-    masked_image = cv2.bitwise_and(frame, mask)    
+def region_triangle(canny, polygon = np.array([[(50, 720), (1200, 720), (750, 400)]])):
+    #array x and y and the top endpoint
+    mask = np.zeros_like(canny)
+    if len(canny.shape) > 2:
+        channel_count = canny.shape[2]
+        ignore_mask_color = (255,) * channel_count
+    else:
+        ignore_mask_color = 255
+    cv2.fillPoly(mask, polygon, ignore_mask_color)
+    masked_image = cv2.bitwise_and(canny, mask)    
     return masked_image
 
 
 def display_lines(frame, lines):
     line_image = np.zeros_like(frame)   
     if lines is not None:
-        print(lines, type(lines))
         for line in lines:
-             if line is not None and isinstance(line, np.ndarray) and line.shape == (4,):  
-                x1, y1, x2, y2 = map(int, line.tolist())  # Convert NumPy array to Python integers
+            if line is not None:
+                print(lines, type(lines))
+                x1, y1, x2, y2 = line
                 cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 0), 10)
     return line_image
 
@@ -40,21 +50,12 @@ def avg_slope_intersept(frame, lines):
                 left_fit.append((slope, intercept))
             else:
                 right_fit.append((slope, intercept))
-        if left_fit:
+
             left_fit_avg = np.mean(left_fit, axis=0) 
-            print(left_fit_avg, 'left')
-            left_line = coordinates(frame, left_fit_avg)
-        else:
-            left_line = None
-        if right_fit:
+            left_line = coordinates(frame, left_fit_avg)   
             right_fit_avg = np.mean(right_fit, axis=0) 
-            print(right_fit_avg, 'right')
             right_line = coordinates(frame, right_fit_avg)
-        else:
-            right_line = None
-    else:
-        left_line = None
-        right_line = None
+   
     return [left_line, right_line]
 
 def coordinates(frame, line_parameters):
