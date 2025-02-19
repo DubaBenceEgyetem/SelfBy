@@ -1,20 +1,30 @@
 import cv2 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 
 
+def resize(frame, canny,cropped, frame_with_lines):
+    # Képek méreteinek beállítása 360x640-re
+    canny = cv2.resize(canny, (640, 360))
+    cropped = cv2.resize(cropped, (640, 360))
+    frame_with_lines = cv2.resize(frame_with_lines, (640, 360))
+    frame = cv2.resize(frame, (640, 360))
+    return (frame, canny, cropped, frame_with_lines)
 
 def processImage(frame, gamma):
+    
     invGamma = 1.0 / gamma
     table = np.array([((i / 255.0) ** invGamma) * 255 for i in range(256)]).astype("uint8")
     gamma = cv2.LUT(frame, table)    
     adjusted = cv2.convertScaleAbs(gamma, alpha=1.0, beta=2.0)
     grayImage = cv2.cvtColor(adjusted, cv2.COLOR_BGR2GRAY)
-    bluredImage = cv2.GaussianBlur(grayImage, (5,5), 0)
+    bluredImage = cv2.medianBlur(grayImage, 5)
     cannyImage = cv2.Canny(bluredImage, 20, 150, apertureSize=3) #20 a minimum 100 az optimális, 150
     return cannyImage
 
-def region_triangle(canny, polygon = np.array([[(50, 720), (1200, 720), (750, 400)]])):
+def region_triangle(canny):
+    polygon = np.array([[(50, 720), (1200, 720), (650, 400)]])
     #array x and y and the top endpoint
     mask = np.zeros_like(canny)
     if len(canny.shape) > 2:
@@ -27,15 +37,23 @@ def region_triangle(canny, polygon = np.array([[(50, 720), (1200, 720), (750, 40
     return masked_image
 
 
+def perspective_transform(frame):
+    frame_size = (frame.shape[1], frame.shape[0]) #dimensions of the frame
+    src = np.float32([[192, 720], [582,457], [701, 457], [1145,720]])
+    offset = [150,0]
+    dst = np.float32([src[0] + offset, np.array([src[0, 0], 0]) + offset, np.array([src[3, 0], 0]) - offset, src[3] - offset])
+    M = cv2.getPerspectiveTransform(src, dst)
+    Minv = cv2.getPerspectiveTransform(dst, src)
+    warped = cv2.warpPerspective(frame, M, frame_size)
+    return warped, M, Minv
+
+
 def display_lines(frame, lines):
-    line_image = np.zeros_like(frame)   
     if lines is not None:
         for line in lines:
-            if line is not None:
-                print(lines, type(lines))
-                x1, y1, x2, y2 = line
-                cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 0), 10)
-    return line_image
+                x1, y1, x2, y2 = line[0]
+                cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), 10)
+    return frame
 
 def avg_slope_intersept(frame, lines):
     left_fit = []    
