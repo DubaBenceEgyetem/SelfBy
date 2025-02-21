@@ -1,6 +1,6 @@
 import cv2 
 import numpy as np
-from LineDetection import processImage, region_triangle, display_lines, avg_slope_intersept, coordinates,perspective_transform,resize
+from LineDetection import processImage,road_condition, region_triangle, display_lines, avg_slope_intersept,coordinates,perspective_transform,resize,abs_sobel_thresh,colorspace
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
@@ -15,20 +15,27 @@ paused = False
 
 def birdeyeView(frame):
      Warped, M, Minv = perspective_transform(frame)
-     cv2.imshow('birdEyeView',Warped)
+     cs = colorspace(Warped)
+     cv2.imshow('birdEyeView', cs)
      plt.show()
+
 
 
 while image.isOpened():
     if not paused:
         ret, frame = image.read()
+    
         birdeyeView(frame)
+        rd = road_condition(frame)
         canny = processImage(frame, gamma=1.5)
         cropped = region_triangle(canny)
         lines = cv2.HoughLinesP(cropped, 2, np.pi / 180, 100, minLineLength=40, maxLineGap=5)
         frame_with_lines = display_lines(frame, lines)        
         frame, canny, cropped, frame_with_lines =resize(frame, canny, cropped, frame_with_lines)
+        binary_out = abs_sobel_thresh(frame, orient='x', thresh=(20,100))
+        #cv2.imshow('sobel', binary_out * 255)
 
+       
         # Szürkeárnyalatos képek 3 dimenzióssá alakítása
         canny = cv2.cvtColor(canny, cv2.COLOR_GRAY2BGR)
         cropped = cv2.cvtColor(cropped, cv2.COLOR_GRAY2BGR)
@@ -39,7 +46,7 @@ while image.isOpened():
         combined = np.vstack((top, bottom))
          # Eredmény megjelenítése
         cv2.imshow('frames', combined)     
-
+     
        
    
 
