@@ -1,6 +1,7 @@
 import cv2 
 import numpy as np
-from LineDetection import processImage,road_condition, region_triangle, display_lines, avg_slope_intersept,coordinates,perspective_transform,resize,abs_sobel_thresh,colorspace
+from LineDetection import road_condition, region_triangle, display_lines,perspective_transform, binarize
+from Preprocessing import processImage, abs_sobel_thresh, hls_selected_channel, resize, colorspace
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
@@ -24,7 +25,7 @@ def birdeyeView(frame):
 while image.isOpened():
     if not paused:
         ret, frame = image.read()
-    
+        
         birdeyeView(frame)
         rd = road_condition(frame)
         canny = processImage(frame, gamma=1.5)
@@ -35,7 +36,8 @@ while image.isOpened():
         binary_out = abs_sobel_thresh(frame, orient='x', thresh=(20,100))
         #cv2.imshow('sobel', binary_out * 255)
 
-       
+        thresholded = binarize(frame) 
+        cv2.imshow("Binary Output", thresholded * 255)
         # Szürkeárnyalatos képek 3 dimenzióssá alakítása
         canny = cv2.cvtColor(canny, cv2.COLOR_GRAY2BGR)
         cropped = cv2.cvtColor(cropped, cv2.COLOR_GRAY2BGR)
